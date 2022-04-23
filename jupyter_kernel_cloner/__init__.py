@@ -15,7 +15,7 @@ def main():
     new_name = args.new_name or args.kernel_name
 
     src_resource_dir = Path(source_kernelspecs[args.kernel_name])
-    new_resource_dir = Path(jupyter_data_dir()) / new_name
+    new_resource_dir = Path(jupyter_data_dir()) / "kernels" / new_name
 
     print(f"Copying\n  '{src_resource_dir}'\nto\n  '{new_resource_dir}'")
     if not args.yes:
