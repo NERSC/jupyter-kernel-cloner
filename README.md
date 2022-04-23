@@ -5,6 +5,7 @@
 Copy a `sys.prefix` kernel resource directory to a user kernel resource
 directory by name.
 Any existing user resource directory by that name will be removed and replaced.
+This copies kernelspecs, not entire conda or virtual environments.
 
 ## How
 
