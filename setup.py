@@ -5,7 +5,7 @@ setup(
     author_email='rcthomas@lbl.gov',
     description="Clone sys.prefix kernelspec to user prefix kernelspec",
     name='jupyter-kernel-cloner',
-    version='0.0.1',
+    version='0.0.3',
     packages=['jupyter_kernel_cloner'],
     entry_points={
         'console_scripts': [
