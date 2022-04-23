@@ -1,35 +1,46 @@
 
 from argparse import ArgumentParser, RawDescriptionHelpFormatter
-from pathlib import Path
-import shutil
+import json
+import os
 import sys
 from textwrap import dedent
 
-from jupyter_client.kernelspec import _list_kernels_in, jupyter_data_dir
+from jupyter_client.kernelspec import (
+    _list_kernels_in, jupyter_data_dir, KernelSpecManager
+)
 
 def main():
-    path = Path(sys.prefix) / "share/jupyter/kernels"
+    path = os.path.join(sys.prefix, "share/jupyter/kernels")
     source_kernelspecs = get_source_kernelspecs(path)
     args = parse_arguments(source_kernelspecs)
+    source_dir = source_kernelspecs[args.kernel_name]
+    copy_kernelspec(args, source_dir)
 
-    new_name = args.new_name or args.kernel_name
+def copy_kernelspec(args, source_dir):
 
-    src_resource_dir = Path(source_kernelspecs[args.kernel_name])
-    new_resource_dir = Path(jupyter_data_dir()) / "kernels" / new_name
+    km = KernelSpecManager()
+    name = args.name or args.kernel_name
+    user = True
 
-    print(f"Copying\n  '{src_resource_dir}'\nto\n  '{new_resource_dir}'")
     if not args.yes:
+        destination = km._get_destination_dir(name, user)
+        print(f"Copying\n  '{source_dir}'\nto\n  '{destination}'")
         confirm = input(f"ARE YOU SURE [y/N]? ")
-        if not confirm.startswith("y"):
+        if not confirm.lower().startswith("y"):
             print("OK, not copying then!")
             sys.exit(0)
 
-    try:
-        shutil.rmtree(new_resource_dir)
-    except FileNotFoundError:
-        pass
+    destination = km.install_kernel_spec(source_dir, name, user)
 
-    shutil.copytree(src_resource_dir, new_resource_dir)
+    if args.display_name:
+        # Don't use KernelSpec, it adds fields, may change other things and we
+        # have to write the revised kernelspec as JSON directly anyway
+        kernel_json = os.path.join(destination, "kernel.json")
+        with open(kernel_json, "r") as f:
+            k = json.load(f)
+        k["display_name"] = args.display_name
+        with open(kernel_json, "w") as f:
+            json.dump(k, f, indent=1)
 
 def get_source_kernelspecs(path):
     source_kernelspecs = _list_kernels_in(path)
@@ -56,7 +67,11 @@ def parse_arguments(source_kernelspecs):
         metavar="{kernel-name}"
     )
     parser.add_argument(
-        "--new-name", "-n",
+        "--display-name", "-d",
+        help="Optional new display name for the cloned kernel-spec."
+    )
+    parser.add_argument(
+        "--name", "-n",
         help="Optional new name for the cloned kernel-spec."
     )
     parser.add_argument(
@@ -82,18 +97,20 @@ def format_source_kernelspecs(source_kernelspecs):
     for name in sorted(source_kernelspecs):
         text += f"  {name:<{width}} ({source_kernelspecs[name]})\n"
 
-    text += "\nsimply clone a kernel-spec:\n\n"
+    text += "\nsimply clone a kernelspec:\n\n"
     text += f"    $ clone-jupyter-kernel {name}\n\n"
-    text += f"  This will clone the kernel-spec '{name}' from\n"
+    text += f"  This will clone the kernelspec '{name}' from\n"
     text += f"    {source_kernelspecs[name]}\n"
     text += f"  to\n"
     text += f"    {jupyter_data_dir()}/{name}\n\n"
 
-    text += "\nclone a kernel-spec, but give it a new name too:\n\n"
-    text += f"    $ clone-jupyter-kernel {name} --new-name=mykernel\n\n"
-    text += f"  This will clone the kernel-spec '{name}' from\n"
+    text += "\nclone kernelspec, but give it a new name and display name:\n\n"
+    text += f"    $ clone-jupyter-kernel {name} \\\n"
+    text += f"        --name=mykernel --display-name=mykernel\n\n"
+    text += f"  This will clone the kernelspec '{name}' from\n"
     text += f"    {source_kernelspecs[name]}\n"
     text += f"  to\n"
     text += f"    {jupyter_data_dir()}/mykernel\n"
+    text += f"  and set 'display_name' to 'mykernel' in the new kernelspec\n"
 
     return text
